@@ -1,10 +1,10 @@
 import math
 import random
-from tkinter import *
 import matplotlib.pyplot as plt
 import numpy as np
 import time
-
+#import plotly.graph_objs as go
+#import altair as alt
 border = 10000
 time_add_remove = 0
 all_time = 0
@@ -12,9 +12,10 @@ time_medoid = 0
 time_centers = 0
 time_distances = 0
 time_matrix_things = 0
-colors = ["red", "green", "blue", "orange", "purple", "brown", "black", "pink","silver","rosybrown",
-          "firebrick","darksalmon", "sienna","gold","palegreen","deepskyblue","navy","mediumpurple",
-          "plum","palevioletred"]
+time_calculate_distance = 0
+colors = ["red", "green", "blue", "orange", "purple", "brown", "black", "pink", "silver", "rosybrown",
+          "firebrick", "darksalmon", "sienna", "gold", "palegreen", "deepskyblue", "navy", "mediumpurple",
+          "plum", "palevioletred"]
 distance_matrix = list()
 number_of_points = 0
 
@@ -27,6 +28,8 @@ def create_distance_matrix(points):
         j = 0
         for p2 in points:
             dist = calculate_distance(p1.x, p1.y, p2.x, p2.y)
+            if dist == 0:
+                dist = float("inf")
             distance_matrix[i][j]=dist
             j += 1
         i += 1
@@ -76,7 +79,9 @@ class Cluster:
     #             min_distance = dist
     #             min_point = point
     #     return [min_point.x, min_point.y]
-
+    def calculate_medoid_with_list(self, l):
+        index = l.index(min(l))
+        return self.cluster_points[index]
 
     def calculate_medoid_test(self):
         min_dis = -1
@@ -164,32 +169,32 @@ class Cluster:
             i+= 1
         return matrix
 
-    def update_matrix_add_point(self, point):
-        self.cluster_points.append(point)
-        distances = []
-        for p in self.cluster_points:
-            if p == point:
-                continue
-            dist = calculate_distance(point.x, point.y, p.x, p.y)
-            distances.append(dist)
-        self.matrix.append(distances)
-        i = 0
-        for row in self.matrix:
-            if i == len(distances):
-                row.append(0)
-            else:
-                row.append(distances[i])
-            i += 1
-        self.matrix[-1].append(0)
-
-    def update_matrix_remove_point(self, point):
-        point_index = self.cluster_points.index(point)
-        # delete row
-        self.matrix.remove(self.matrix[point_index])
-        # delete column
-        for i in range(len(self.matrix)):
-            self.matrix[i].remove(self.matrix[i][point_index])
-        self.cluster_points.remove(point)
+    # def update_matrix_add_point(self, point):
+    #     self.cluster_points.append(point)
+    #     distances = []
+    #     for p in self.cluster_points:
+    #         if p == point:
+    #             continue
+    #         dist = calculate_distance(point.x, point.y, p.x, p.y)
+    #         distances.append(dist)
+    #     self.matrix.append(distances)
+    #     i = 0
+    #     for row in self.matrix:
+    #         if i == len(distances):
+    #             row.append(0)
+    #         else:
+    #             row.append(distances[i])
+    #         i += 1
+    #     self.matrix[-1].append(0)
+    #
+    # def update_matrix_remove_point(self, point):
+    #     point_index = self.cluster_points.index(point)
+    #     # delete row
+    #     self.matrix.remove(self.matrix[point_index])
+    #     # delete column
+    #     for i in range(len(self.matrix)):
+    #         self.matrix[i].remove(self.matrix[i][point_index])
+    #     self.cluster_points.remove(point)
 
 
 def generate_points():
@@ -216,7 +221,7 @@ def generate_points():
     return points
 
 def calculate_distance(x1, y1, x2, y2):
-    distance = math.sqrt(math.pow(x1-x2, 2) + math.pow(y1-y2, 2))
+    distance = math.sqrt((x1-x2)**2 + (y1-y2)**2)
     return distance
 
 
@@ -253,8 +258,8 @@ def draw(clusters):
     #     #print("Col ",point.cluster)
     #     color = colors[point.cluster.color]
     #     plt.plot(point.x, point.y, marker=".", markersize=2, color=color)
-    #
-    # plt.show()
+
+    plt.show()
 
 def compute_cluster_centers(cent_med, clusters):
     centers = []
@@ -264,9 +269,52 @@ def compute_cluster_centers(cent_med, clusters):
             centers.append(centroid)
         else:
             #medoid = cluster.calculate_medoid_test()
-            medoid = cluster.calculate_medoid_matrix()
+            medoid = cluster.calculate_medoid_with_list()
             centers.append([medoid.x, medoid.y])
     return centers
+
+def create_list_of_distances(clusters):
+    distances_list = []
+    for cluster in clusters:
+        clust_distances = []
+        for point in cluster.cluster_points:
+            sum_dist = 0
+            for p2 in cluster.cluster_points:
+                sum_dist += calculate_distance(point.x, point.y, p2.x, p2.y)
+            clust_distances.append(sum_dist)
+        distances_list.append(clust_distances)
+    return distances_list
+
+def compute_centroids(clusters):
+    centers = []
+    for cluster in clusters:
+        centroid = cluster.calculate_centroid()
+        centers.append(centroid)
+    return centers
+
+def compute_all_medoids(clusters):
+    centers = []
+    for cluster in clusters:
+        # medoid = cluster.calculate_medoid_with_list(distances_list)
+        medoid = cluster.calculate_medoid_test()
+        centers.append([medoid.x, medoid.y])
+    return centers
+
+def recalculate_distances(old_cluster, new_cluster, distance_list, clusters, point):
+    index_new = clusters.index(new_cluster)
+    if old_cluster != 0:
+        index_old = clusters.index(old_cluster)
+        i = 0
+        for p2 in old_cluster.cluster_points:
+            dist = calculate_distance(point.x, point.y, p2.x, p2.y)
+            distance_list[index_old][i] -= dist
+            i += 0
+    i = 0
+    for p2 in new_cluster.cluster_points:
+        dist = calculate_distance(point.x, point.y, p2.x, p2.y)
+        distance_list[index_new][i] += dist
+        i += 0
+
 
 
 def k_means(clusters, points, k, cent_med):
@@ -283,7 +331,11 @@ def k_means(clusters, points, k, cent_med):
         #STEP 1
         print("Idem ratat centroidy/medoidy")
         start_centeres = time.time()
-        cluster_centers = compute_cluster_centers(cent_med, clusters)
+        if cent_med == 1:
+            cluster_centers = compute_centroids(clusters)
+        else:
+            cluster_centers = compute_all_medoids(clusters)
+        #cluster_centers = compute_cluster_centers(cent_med, clusters)
         end_centers = time.time()
         time_centers += end_centers - start_centeres
         print("Doratal som")
@@ -309,20 +361,29 @@ def k_means(clusters, points, k, cent_med):
             if old_cluster != 0 and len(old_cluster.cluster_points) == 1 and old_cluster != min_cluster:
                 continue
             # CENTROID
-            if cent_med == 1:
-                if old_cluster != 0:
-                    old_cluster.cluster_points.remove(point)
-                    old_cluster.x_sum -= point.x
-                    old_cluster.y_sum -= point.y
-                min_cluster.cluster_points.append(point)
-                min_cluster.x_sum += point.x
-                min_cluster.y_sum += point.y
-            # MEDOID
-            if cent_med == 2:
-                if old_cluster != 0:
-                    old_cluster.cluster_points.remove(point)
-                min_cluster.cluster_points.append(point)
+            # if cent_med == 1:
+            #     if old_cluster != 0:
+            #         old_cluster.cluster_points.remove(point)
+            #         old_cluster.x_sum -= point.x
+            #         old_cluster.y_sum -= point.y
+            #     min_cluster.cluster_points.append(point)
+            #     min_cluster.x_sum += point.x
+            #     min_cluster.y_sum += point.y
+            #
+            # # MEDOID
+            # if cent_med == 2:
+            #     if old_cluster != 0:
+            #         old_cluster.cluster_points.remove(point)
+            #     min_cluster.cluster_points.append(point)
+            if old_cluster != 0:
+                old_cluster.cluster_points.remove(point)
+                old_cluster.x_sum -= point.x
+                old_cluster.y_sum -= point.y
+            min_cluster.cluster_points.append(point)
+            min_cluster.x_sum += point.x
+            min_cluster.y_sum += point.y
             point.cluster = min_cluster
+
         if changes == 0:
             break
         iterations += 1
@@ -368,46 +429,36 @@ def find_closest_couple():
     min_couple = []
     i = 0
     for row in distance_matrix:
-        j = 0
-        for su in row:
-            if su == 0:
-                j += 1
-                continue
-            if min_di == -1 or su < min_di:
-                min_di = su
-                min_couple = [i, j]
-            j += 1
+        s = min(row)
+        j = row.index(s)
+        if min_di == -1 or s < min_di:
+            min_di = s
+            min_couple = [i, j]
         i += 1
-
-    # for row in distance_matrix:
-    #     s = np.min(np.array(row))
-    #     j = row.index(s)
-    #     if min_di == -1 or s < min_di:
-    #         s = min_di
-    #         min_couple = [i,j]
-    #     i += 1
     return min_couple
 
-def update_matrix_after_removal(row_i, column_i, new_cluster,clusters):
+def update_matrix_after_removal(keep_index, delete_index, new_cluster, clusters):
     global distance_matrix
     # distance_matrix = np.array(distance_matrix).delete(distance_matrix, row_i, 0)
     # distance_matrix = np.array(distance_matrix).delete(distance_matrix, row_i, 1)
     # vymazem jeden riadok lebo jeden row ide prec
     #distance_matrix.remove(distance_matrix[row_i])
-    del distance_matrix[row_i]
+    del distance_matrix[delete_index]
     # # v kazdom stlpci vymazem 1 prvok
     for row in distance_matrix:
         #row.remove(row[row_i])
-        del row[row_i]
+        del row[delete_index]
 
     centroid = new_cluster.calculate_centroid()
     # -1 lebo jeden riadok som uz vymazal
     i = 0
-    new_index = column_i - 1
+    new_index =keep_index
     # prepocitam si nove vzdialenosti
     for cluster in clusters:
         centroid2 = cluster.calculate_centroid()
         dist = calculate_distance(centroid[0], centroid[1], centroid2[0], centroid2[1])
+        if dist == 0:
+            dist = float("inf")
         distance_matrix[new_index][i] = dist
         distance_matrix[i][new_index] = dist
         i += 1
@@ -430,12 +481,12 @@ def agglomerative_clustering(clusters, points, k):
         # najdem najblizsiu dvojicu
         closest = find_closest_couple()
         print("Nasiel som najblizsie ", closest)
-
         if closest[0] == closest[1]:
             print("Zle daco naslo")
             exit(1)
-        new_cluster = clusters[closest[1]]
-        second_cluster = clusters[closest[0]]
+        # necham si ten prvy index a ten druhy zahodim
+        new_cluster = clusters[closest[0]]
+        second_cluster = clusters[closest[1]]
         # prekopirujem body z toho jedneho clustra co idem vymazat do druheho ktory mi zostane
         print("Idem prekopirovat body a je ich ", len(second_cluster.cluster_points))
         j = 0
@@ -457,15 +508,6 @@ def agglomerative_clustering(clusters, points, k):
         length = len(clusters)
         print("Length ", length)
 
-def calculate_center(cluster):
-    max_y = max(point.y for point in cluster.cluster_points)
-    max_x = max(point.x for point in cluster.cluster_points)
-    min_y = min(point.y for point in cluster.cluster_points)
-    min_x = min(point.x for point in cluster.cluster_points)
-
-
-    center = [abs(max_x-min_x)/2, abs(max_y-min_y)/2]
-    return center
 
 def evaluate(clusters):
     all_clusters = len(clusters)
@@ -473,7 +515,7 @@ def evaluate(clusters):
     for cluster in clusters:
         center = cluster.calculate_centroid()
         #center = calculate_center(cluster)
-        plt.plot(center[0],center[1],marker="+",markersize=5,color="black")
+        #plt.plot(center[0], center[1], marker="+", markersize=5, color="black")
         dist = 0
         for point in cluster.cluster_points:
             dist += calculate_distance(point.x, point.y, center[0], center[1])
