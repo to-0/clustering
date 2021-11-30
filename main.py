@@ -13,9 +13,13 @@ time_centers = 0
 time_distances = 0
 time_matrix_things = 0
 time_calculate_distance = 0
+DEBUG = False
+DIVISIVE = False
 colors = ["red", "green", "blue", "orange", "purple", "brown", "black", "pink", "silver", "rosybrown",
           "firebrick", "darksalmon", "sienna", "gold", "palegreen", "deepskyblue", "navy", "mediumpurple",
-          "plum", "palevioletred"]
+          "plum", "palevioletred", "darkgoldenrod", "olive", "lawngreen", "darkseagreen", "forestgreen",
+          "turquise", "lightseagreen", "lightcyan", "darkslategray", "aqua", "cadetblue", "lightblue", "slategrey",
+          "lavender", "midnightblue", "indigo", "darkorchild", "hotpink"]
 distance_matrix = list()
 number_of_points = 0
 
@@ -43,11 +47,10 @@ def calculate_distance_w_matrix(p1, p2):
 
 
 class Point:
-    def __init__(self, x, y, cluster,i):
+    def __init__(self, x, y, cluster):
         self.x = x
         self.y = y
         self.cluster = cluster
-        self.index = i
 
 class Cluster:
     def __init__(self, cluster_points):
@@ -68,17 +71,6 @@ class Cluster:
         y = self.y_sum / len(self.cluster_points)
         return [x, y]
 
-    # def medoid_is_the_new_centroid(self):
-    #     x = self.x_sum / len(self.cluster_points)
-    #     y = self.y_sum / len(self.cluster_points)
-    #     min_distance = -1
-    #     min_point = -1
-    #     for point in self.cluster_points:
-    #         dist = calculate_distance(point.x, point.y, x, y)
-    #         if min_distance == -1 or min_distance > dist:
-    #             min_distance = dist
-    #             min_point = point
-    #     return [min_point.x, min_point.y]
     def calculate_medoid_with_list(self, l):
         index = l.index(min(l))
         return self.cluster_points[index]
@@ -109,28 +101,6 @@ class Cluster:
                 min_dis = dist
                 med = p1
         return med
-
-
-    # def calculate_medoid_experiment(self):
-    #
-    #     max_y = max(point.y for point in self.cluster_points)
-    #     max_x = max(point.x for point in self.cluster_points)
-    #
-    #     min_y = min(point.y for point in self.cluster_points)
-    #     min_x = min(point.x for point in self.cluster_points)
-    #
-    #
-    #     med = [abs(max_x-min_x)/2, abs(max_y-min_y)/2]
-    #
-    #     min_dist = -1
-    #     min_point = -1
-    #     for point in self.cluster_points:
-    #         dist = calculate_distance(point.x,point.y,med[0],med[0])
-    #         if min_dist == -1 or dist < min_dist:
-    #             min_dist = dist
-    #             min_point = point
-    #     return min_point
-
 
     def update_centroid_remove_point(self, point):
         self.x_sum -= point.x
@@ -169,33 +139,6 @@ class Cluster:
             i+= 1
         return matrix
 
-    # def update_matrix_add_point(self, point):
-    #     self.cluster_points.append(point)
-    #     distances = []
-    #     for p in self.cluster_points:
-    #         if p == point:
-    #             continue
-    #         dist = calculate_distance(point.x, point.y, p.x, p.y)
-    #         distances.append(dist)
-    #     self.matrix.append(distances)
-    #     i = 0
-    #     for row in self.matrix:
-    #         if i == len(distances):
-    #             row.append(0)
-    #         else:
-    #             row.append(distances[i])
-    #         i += 1
-    #     self.matrix[-1].append(0)
-    #
-    # def update_matrix_remove_point(self, point):
-    #     point_index = self.cluster_points.index(point)
-    #     # delete row
-    #     self.matrix.remove(self.matrix[point_index])
-    #     # delete column
-    #     for i in range(len(self.matrix)):
-    #         self.matrix[i].remove(self.matrix[i][point_index])
-    #     self.cluster_points.remove(point)
-
 
 def generate_points():
     points = []
@@ -205,7 +148,7 @@ def generate_points():
     for i in range(20):
         x = random.randint(-5000, 5000)
         y = random.randint(-5000, 5000)
-        points.append(Point(x, y, 0, i))
+        points.append(Point(x, y, 0))
 
     #create_first_20()
     #global points
@@ -214,9 +157,23 @@ def generate_points():
         index = random.randint(0, len(points)-1)
         #print("dlzka je ", len(points), index)
         p = points[index]
-        x_offset = random.randint(-100, 100)
-        y_offset = random.randint(-100, 100)
-        point = Point(p.x+x_offset, p.y+y_offset, 0,i+20)
+        bottom_border_x = -100
+        upper_border_x = 100
+        bottom_border_y = -100
+        upper_border_y = 100
+        if (p.x - 100) < -5000:
+            bottom_border_x = -5000 - p.x
+        if p.x + 100 > 5000:
+            upper_border_x = 5000 - p.x
+
+        if p.y - 100 < -5000:
+            bottom_border_y = -5000 - p.y
+        if p.y + 100 > 5000:
+            upper_border_y = 5000 - p.y
+
+        x_offset = random.randint(bottom_border_x, upper_border_x)
+        y_offset = random.randint(bottom_border_y, upper_border_y)
+        point = Point(p.x+x_offset, p.y+y_offset, 0)
         points.append(point)
     return points
 
@@ -300,45 +257,29 @@ def compute_all_medoids(clusters):
         centers.append([medoid.x, medoid.y])
     return centers
 
-def recalculate_distances(old_cluster, new_cluster, distance_list, clusters, point):
-    index_new = clusters.index(new_cluster)
-    if old_cluster != 0:
-        index_old = clusters.index(old_cluster)
-        i = 0
-        for p2 in old_cluster.cluster_points:
-            dist = calculate_distance(point.x, point.y, p2.x, p2.y)
-            distance_list[index_old][i] -= dist
-            i += 0
-    i = 0
-    for p2 in new_cluster.cluster_points:
-        dist = calculate_distance(point.x, point.y, p2.x, p2.y)
-        distance_list[index_new][i] += dist
-        i += 0
-
-
 
 def k_means(clusters, points, k, cent_med):
     # init step
     global time_centers
     global time_matrix_things
     select_k_clusters(clusters, k, points)
-    print(clusters)
+    #print(clusters)
     iterations = 0
     global time_distances
     while True:
-        print("Iteracia", iterations)
+        if DEBUG:
+            print("Iteration", iterations)
         changes = 0
         #STEP 1
-        print("Idem ratat centroidy/medoidy")
         start_centeres = time.time()
+        #print("Idem ratat centroidy/medoidy")
         if cent_med == 1:
             cluster_centers = compute_centroids(clusters)
         else:
             cluster_centers = compute_all_medoids(clusters)
-        #cluster_centers = compute_cluster_centers(cent_med, clusters)
         end_centers = time.time()
         time_centers += end_centers - start_centeres
-        print("Doratal som")
+        #print("Doratal som")
         for point in points:
             old_cluster = point.cluster
             min_dist = -1
@@ -360,21 +301,6 @@ def k_means(clusters, points, k, cent_med):
 
             if old_cluster != 0 and len(old_cluster.cluster_points) == 1 and old_cluster != min_cluster:
                 continue
-            # CENTROID
-            # if cent_med == 1:
-            #     if old_cluster != 0:
-            #         old_cluster.cluster_points.remove(point)
-            #         old_cluster.x_sum -= point.x
-            #         old_cluster.y_sum -= point.y
-            #     min_cluster.cluster_points.append(point)
-            #     min_cluster.x_sum += point.x
-            #     min_cluster.y_sum += point.y
-            #
-            # # MEDOID
-            # if cent_med == 2:
-            #     if old_cluster != 0:
-            #         old_cluster.cluster_points.remove(point)
-            #     min_cluster.cluster_points.append(point)
             if old_cluster != 0:
                 old_cluster.cluster_points.remove(point)
                 old_cluster.x_sum -= point.x
@@ -387,14 +313,8 @@ def k_means(clusters, points, k, cent_med):
         if changes == 0:
             break
         iterations += 1
-    print("Iteracii ", iterations)
-
-def medoid_pam(clusters):
-    medoids = []
-    for cluster in clusters:
-        for point in cluster.cluster_points:
-            pass
-
+    if not DIVISIVE:
+        print("Number of iterations ", iterations)
 
 # najvacsiu sumu vzdialenosti od centroidu ma
 def calculate_worst_cluster(clusters):
@@ -411,6 +331,8 @@ def calculate_worst_cluster(clusters):
     return worst_cluster
 
 def divisive_clustering(clusters, points, k):
+    global DIVISIVE
+    DIVISIVE = True
     # clusters.append(Cluster(points, 0))
     # vytvorim si random 2 clustre uz ich rozdelim ako keby
     k_means(clusters, points, 2, 1)
@@ -467,28 +389,27 @@ def update_matrix_after_removal(keep_index, delete_index, new_cluster, clusters)
 def agglomerative_clustering(clusters, points, k):
     i = 0
     global distance_matrix
-    print("Idem vytvarat maticu")
+    print("Creating distance matrix")
     create_distance_matrix(points)
-    print("Vytvoril som maticu")
+    print("Done")
     # pre kazdy bod spravim cluster
     for point in points:
         clusters.append(Cluster([point]))
-    print("priradl som")
     length = len(clusters)
     iteration = 0
     while length != k:
-        print("Iteracia ", iteration)
+        print("Iteration ", iteration)
         # najdem najblizsiu dvojicu
         closest = find_closest_couple()
-        print("Nasiel som najblizsie ", closest)
+        print("Closest ", closest)
         if closest[0] == closest[1]:
-            print("Zle daco naslo")
+            print("Something went wrong")
             exit(1)
         # necham si ten prvy index a ten druhy zahodim
         new_cluster = clusters[closest[0]]
         second_cluster = clusters[closest[1]]
         # prekopirujem body z toho jedneho clustra co idem vymazat do druheho ktory mi zostane
-        print("Idem prekopirovat body a je ich ", len(second_cluster.cluster_points))
+        print("Going to copy points ", len(second_cluster.cluster_points))
         j = 0
         for point in second_cluster.cluster_points:
             new_cluster.cluster_points.append(point)
@@ -498,20 +419,21 @@ def agglomerative_clustering(clusters, points, k):
             new_cluster.y_sum += point.y
             j += 1
         # vymazem jeden z tych clustrov zo zoznamu
-        print("Idem vymazat?")
+       # print("Idem vymazat?")
         clusters.remove(second_cluster)
         del second_cluster
         # updatnem maticu vymazem 1 riadok a stlpec a prepocitam jeden riadok a stlpec
-        print("Idem updatnut maticu")
+        print("Updating matrix")
         update_matrix_after_removal(closest[0], closest[1], new_cluster, clusters)
         iteration += 1
         length = len(clusters)
         print("Length ", length)
 
 
-def evaluate(clusters):
+def evaluate(clusters, avg_distances):
     all_clusters = len(clusters)
     bad_clusters = 0
+    distances = []
     for cluster in clusters:
         center = cluster.calculate_centroid()
         #center = calculate_center(cluster)
@@ -522,43 +444,181 @@ def evaluate(clusters):
         average_distance = dist / len(cluster.cluster_points)
         if average_distance > 500:
             bad_clusters += 1
+        distances.append(average_distance)
+    avg_distances.append(distances)
     good_clusters = all_clusters - bad_clusters
-    print("Uspesnost ", good_clusters/all_clusters*100)
+    print("Success rate ", good_clusters/all_clusters*100)
+    return good_clusters/all_clusters*100
+
+def clean_points(points):
+    for point in points:
+        point.cluster = 0
+
+
+def testing_function():
+    print("1. Test kmeans centroid")
+    print("2. Test kmeans medoid")
+    print("3. Test divisive clustering with centroids")
+    print("4. Test agglomerative clustering with centroids")
+    a = int(input())
+    k = int(input("Select number of clusters\n"))
+    n = int(input("Select how many times you want to run each cluster function\n"))
+    global all_time
+    time_k_centroid = 0
+    time_k_medoids = 0
+    time_divisive = 0
+    time_agglo = 0
+    draw_flag = int(input("1. Draw everything (slow)\n2. Draw only the best and worst\n3. Draw nothing\n"))
+    points_flag = int(input("1. Generate new points every time\n2. Use the same points (except agglomerative clustering)\n"))
+    worst = -1
+    best = -1
+    best_value = -1
+    worst_value = -1
+    average_time = 0
+    average_success = 0
+    average_distances = []
+    points = generate_points()
+    for i in range(n):
+        clusters= []
+        start = time.time()
+        #CENTROIDY A MEDOIDY
+        if a == 1 or a == 2:
+            k_means(clusters, points, k, a)
+        if a == 3:
+            divisive_clustering(clusters, points, k)
+        if a == 4:
+            agglomerative_clustering(clusters, points, k)
+        end = time.time()
+        average_time += end-start
+        print("Time ", end - start)
+        if draw_flag == 1:
+            draw(clusters)
+        if points_flag == 2 and a != 4:
+            clean_points(points)
+        if points_flag == 1 or a == 4:
+            points = generate_points()
+        val = evaluate(clusters, average_distances)
+        average_success += val
+        print("Average distances ", average_distances[-1])
+        print("Average distance of a cluster", sum(average_distances[-1]) / k)
+        if best == -1 or best_value < val:
+            best = clusters
+            best_value = val
+        elif worst == -1 or worst_value > val:
+            worst = clusters
+            worst_value = val
+        print("="*30)
+    print("Average time", average_time / n)
+    print("Average success", average_success / n)
+    print("Overall average distance", calculate_overall_average_distance(average_distances))
+    # # IBA CENTROIDY alebo MEDOIDY
+    # if a== 1 or a==2:
+    #     points = generate_points()
+    #     for i in range(n):
+    #         clusters = []
+    #         start = time.time()
+    #         k_means(clusters, points, k, a)
+    #         end = time.time()
+    #         print("Time ", end - start)
+    #         time_k_centroid += end - start
+    #         if draw_flag == 1:
+    #             draw(clusters)
+    #         if points_flag == 2:
+    #             clean_points(points)
+    #         if points_flag == 1:
+    #             points = generate_points()
+    #         val = evaluate(clusters, average_distances)
+    #         average_success += val
+    #         print("Average distances ", average_distances[-1])
+    #         print("Average distance of a cluster", sum(average_distances[-1]) / k)
+    #         average_success += val
+    #         if best == -1 or best_value < val:
+    #             best = clusters
+    #             best_value = val
+    #         elif worst == -1 or worst_value > val:
+    #             worst = clusters
+    #             worst_value = val
+    #         print("=" * 30)
+    #     print("Average time", time_k_centroid/n)
+    #     print("Average success", average_success/n)
+    #     print("Overall average distance", calculate_overall_average_distance(average_distances))
+    # # IBA DIVIZIVNE
+    # elif a == 3:
+    #     points = generate_points()
+    #     for i in range(n):
+    #         clusters = []
+    #         start = time.time()
+    #         divisive_clustering(clusters, points, k)
+    #         end = time.time()
+    #         print("Time ", end - start)
+    #         time_divisive += end - start
+    #         if draw_flag == 1:
+    #             draw(clusters)
+    #         if points_flag == 2:
+    #             clean_points(points)
+    #         val = evaluate(clusters, average_distances)
+    #         average_success += val
+    #         print("Average distances ", average_distances[-1])
+    #         print("Average distance of a cluster", sum(average_distances[-1]) / k)
+    #         average_success += val
+    #         if best == -1 or best_value < val:
+    #             best = clusters
+    #             best_value = val
+    #         elif worst == -1 or worst_value > val:
+    #             worst = clusters
+    #             worst_value = val
+    #         print("=" * 30)
+    #     print("Average time", time_divisive / n)
+    #     print("Average success", average_success / n)
+    #     print("Overall average distance", calculate_overall_average_distance(average_distances))
+    # # IBA AGLOMERATIVNE
+    # elif a == 4:
+    #     for i in range(n):
+    #         clusters = []
+    #         points = generate_points()
+    #         start = time.time()
+    #         agglomerative_clustering(clusters, points, k)
+    #         end = time.time()
+    #         print("Cas ", end - start)
+    #         time_agglo += end - start
+    #         if draw_flag == 1:
+    #             draw(clusters)
+    #         val = evaluate(clusters, average_distances)
+    #         print("Average distances ", average_distances)
+    #         print("Average distance of a cluster", sum(average_distances[-1])/k)
+    #         average_success += val
+    #         if best == -1 or best_value < val:
+    #             best = clusters
+    #             best_value = val
+    #         elif worst == -1 or worst_value > val:
+    #             worst = clusters
+    #             worst_value = val
+    #         print("=" * 30)
+    #     print("Average time", time_agglo / n)
+    #     print("Average success", average_success / n)
+    #     print("Overall average distance", calculate_overall_average_distance(average_distances))
+    if draw_flag == 2:
+        draw(worst)
+        draw(best)
+
+def calculate_overall_average_distance(average_distances):
+    s = 0
+    for distances in average_distances:
+        s += sum(distances)/len(distances)
+    return s / len(average_distances)
 
 
 def main():
     global number_of_points
+    global DEBUG
+    de = input("Debug y/n")
+    if de == "y":
+        DEBUG = True
+    else:
+        DEBUG = False
     number_of_points = int(input("Number of points added to the first 20 points\n"))
-    points = generate_points()
-    #create_distance_matrix(points)
-    print("1. K means clustering with centroid")
-    print("2 K means clustering with medoid")
-    print("3. Divisive clustering with centroid")
-    print("4. Aglomerative clustering with centroid")
-    choice = int(input())
-    clusters = []
-    k = int(input("K \n"))
-    start = time.time()
-    if choice == 1:
-        k_means(clusters, points, k, 1)
-    elif choice == 2:
-        start = time.time()
-        k_means(clusters, points, k, 2)
-    elif choice == 3:
-        divisive_clustering(clusters, points, k)
-    elif choice == 4:
-        agglomerative_clustering(clusters,points,k)
-    end = time.time()
-    a = end - start
-    print("Idem kreslit")
-    print(f'Cas remove a append {time_add_remove}')
-    print(f'Cas medoidu {time_medoid}')
-    print(f'Celkovy cas {a}')
-    print(f' Cas na ratanie medoidov/centroidov {time_centers}')
-    print(f'Cas na ratanie vzdialenosti {time_distances}')
-    print(f'Cas na handlovanie matice {time_matrix_things}')
-    evaluate(clusters)
-    draw(clusters)
+    testing_function()
+
 
 if __name__ == '__main__':
     main()
