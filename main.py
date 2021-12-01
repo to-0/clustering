@@ -58,10 +58,9 @@ class Cluster:
         self.cluster_points = cluster_points
         self.x_sum = 0
         self.y_sum = 0
-        self.initialize_averages()
-        #self.matrix = self.create_matrix()
+        self.initialize_sums()
 
-    def initialize_averages(self):
+    def initialize_sums(self):
         for point in self.cluster_points:
             self.x_sum += point.x
             self.y_sum += point.y
@@ -71,10 +70,6 @@ class Cluster:
         x = self.x_sum / len(self.cluster_points)
         y = self.y_sum / len(self.cluster_points)
         return [x, y]
-
-    def calculate_medoid_with_list(self, l):
-        index = l.index(min(l))
-        return self.cluster_points[index]
 
     def calculate_medoid_test(self):
         min_dis = -1
@@ -87,58 +82,6 @@ class Cluster:
                 min_dis = dist
                 med = p1
         return med
-
-    def calculate_medoid_matrix(self):
-        min_dis = -1
-        med = -1
-        for p1 in self.cluster_points:
-            dist = 0
-            for p2 in self.cluster_points:
-                if p1 == p2:
-                    continue
-                dist += calculate_distance_w_matrix(p1, p2)
-                #dist += calculate_distance(p1.x, p1.y, p2.x, p2.y)
-            if min_dis == -1 or dist < min_dis:
-                min_dis = dist
-                med = p1
-        return med
-
-    def update_centroid_remove_point(self, point):
-        self.x_sum -= point.x
-        self.y_sum -= point.y
-        self.cluster_points.remove(point)
-
-    def calculate_medoid(self):
-        if len(self.cluster_points)==1:
-            return self.cluster_points[0]
-        # vrati cislo najmensieho riadku
-        i = 0
-        min_d = -1
-        index_medoid = -1
-        for i in range(len(self.matrix[0])):
-            num = self.matrix[0][i]
-            if min_d == -1 or num < min_d:
-                min_d = num
-                index_medoid = i
-
-        # print(self.matrix)
-        return self.cluster_points[index_medoid]
-
-    def create_matrix(self):
-        length = len(self.cluster_points)
-        matrix = [[0 for x in range(length)] for y in range(length)]
-        if length == 1:
-            return matrix
-        i = 0
-        row = []
-        for point in self.cluster_points:
-            j = 0
-            for point2 in self.cluster_points:
-                dist = calculate_distance(point.y, point.y, point2.x, point2.y)
-                matrix[i][j] = dist
-                j += 1
-            i+= 1
-        return matrix
 
 
 def generate_points():
@@ -175,6 +118,8 @@ def generate_points():
         x_offset = random.randint(bottom_border_x, upper_border_x)
         y_offset = random.randint(bottom_border_y, upper_border_y)
         point = Point(p.x+x_offset, p.y+y_offset, 0)
+        if point.x > 5000 or point.x < -5000 or point.y > 5000 or point.y < -5000:
+            print("Mimo")
         points.append(point)
     return points
 
@@ -258,9 +203,10 @@ def compute_all_medoids(clusters):
     return centers
 
 
-def k_means(clusters, points, k, cent_med):
+def k_means(points, k, cent_med):
     # init step
     global time_centers
+    clusters = []
     select_k_clusters(clusters, k, points)
     #print(clusters)
     iterations = 0
@@ -316,7 +262,7 @@ def k_means(clusters, points, k, cent_med):
     if not DIVISIVE:
         print("Number of iterations ", iterations)
         iterations_avg += iterations
-
+    return clusters
 
 # najvacsiu sumu vzdialenosti od centroidu ma
 def calculate_worst_cluster(clusters):
@@ -332,20 +278,24 @@ def calculate_worst_cluster(clusters):
             worst_cluster = cluster
     return worst_cluster
 
-def divisive_clustering(clusters, points, k):
+def divisive_clustering(points, k):
     global DIVISIVE
     DIVISIVE = True
     # vytvorim si random 2 clustre uz ich rozdelim ako keby
-    k_means(clusters, points, 2, 1)
+    clusters = k_means(points, 2, 1)
     print("-"*30)
     length = len(clusters)
     while length != k:
         # najdem si najhorsi cluster ten budem delit
         worst = calculate_worst_cluster(clusters)
         clusters.remove(worst)
+        clean_points(worst.cluster_points)
         # toto mi prida dalsie 2 clustre cize ten stary cluster najhorsi predtym zahodim
-        k_means(clusters, worst.cluster_points, 2, 1)
+        new_clusters = k_means(worst.cluster_points, 2, 1)
+        for cluster in new_clusters:
+            clusters.append(cluster)
         length = len(clusters)
+    return clusters
 
 def find_closest_couple():
     min_di = -1
@@ -476,16 +426,17 @@ def testing_function():
     average_distances = []
     points = generate_points()
     for i in range(n):
-        clusters= []
+
         start = time.time()
         #CENTROIDY A MEDOIDY
         if a == 1 or a == 2:
-            k_means(clusters, points, k, a)
+            clusters = k_means(points, k, a)
         # DIVIZIVNE
         if a == 3:
-            divisive_clustering(clusters, points, k)
+            clusters = divisive_clustering(points, k)
         # AGLOMERATIVNE
         if a == 4:
+            clusters = []
             agglomerative_clustering(clusters, points, k)
         end = time.time()
         average_time += end-start
