@@ -13,10 +13,11 @@ time_centers = 0
 time_distances = 0
 time_matrix_things = 0
 time_calculate_distance = 0
+iterations_avg = 0
 DEBUG = False
 DIVISIVE = False
-colors = ["red", "green", "blue", "orange", "purple", "brown", "black", "pink", "silver", "rosybrown",
-          "firebrick", "darksalmon", "sienna", "gold", "palegreen", "deepskyblue", "navy", "mediumpurple",
+colors = ["red", "green", "blue", "orange", "purple", "brown", "black", "pink", "silver",
+            "darksalmon", "gold", "palegreen", "deepskyblue", "navy", "mediumpurple",
           "plum", "palevioletred", "darkgoldenrod", "olive", "lawngreen", "darkseagreen", "forestgreen",
           "turquise", "lightseagreen", "lightcyan", "darkslategray", "aqua", "cadetblue", "lightblue", "slategrey",
           "lavender", "midnightblue", "indigo", "darkorchild", "hotpink"]
@@ -185,7 +186,6 @@ def calculate_distance(x1, y1, x2, y2):
 # vyberiem nahodne k bodov ako k clustrov
 def select_k_clusters(clusters, k, points):
     used = []
-    counter = 0
     for i in range(k):
         c_number = random.randint(0, len(points)-1)
         while c_number in used:
@@ -261,7 +261,6 @@ def compute_all_medoids(clusters):
 def k_means(clusters, points, k, cent_med):
     # init step
     global time_centers
-    global time_matrix_things
     select_k_clusters(clusters, k, points)
     #print(clusters)
     iterations = 0
@@ -313,8 +312,11 @@ def k_means(clusters, points, k, cent_med):
         if changes == 0:
             break
         iterations += 1
+    global iterations_avg
     if not DIVISIVE:
         print("Number of iterations ", iterations)
+        iterations_avg += iterations
+
 
 # najvacsiu sumu vzdialenosti od centroidu ma
 def calculate_worst_cluster(clusters):
@@ -333,18 +335,17 @@ def calculate_worst_cluster(clusters):
 def divisive_clustering(clusters, points, k):
     global DIVISIVE
     DIVISIVE = True
-    # clusters.append(Cluster(points, 0))
     # vytvorim si random 2 clustre uz ich rozdelim ako keby
     k_means(clusters, points, 2, 1)
+    print("-"*30)
     length = len(clusters)
     while length != k:
         # najdem si najhorsi cluster ten budem delit
         worst = calculate_worst_cluster(clusters)
-        # toto mi prida dalsie 2 clustre cize ten stary cluster najhorsi mozem zahodit
-        k_means(clusters, worst.cluster_points, 2, 1)
         clusters.remove(worst)
+        # toto mi prida dalsie 2 clustre cize ten stary cluster najhorsi predtym zahodim
+        k_means(clusters, worst.cluster_points, 2, 1)
         length = len(clusters)
-
 
 def find_closest_couple():
     min_di = -1
@@ -464,10 +465,6 @@ def testing_function():
     k = int(input("Select number of clusters\n"))
     n = int(input("Select how many times you want to run each cluster function\n"))
     global all_time
-    time_k_centroid = 0
-    time_k_medoids = 0
-    time_divisive = 0
-    time_agglo = 0
     draw_flag = int(input("1. Draw everything (slow)\n2. Draw only the best and worst\n3. Draw nothing\n"))
     points_flag = int(input("1. Generate new points every time\n2. Use the same points (except agglomerative clustering)\n"))
     worst = -1
@@ -484,8 +481,10 @@ def testing_function():
         #CENTROIDY A MEDOIDY
         if a == 1 or a == 2:
             k_means(clusters, points, k, a)
+        # DIVIZIVNE
         if a == 3:
             divisive_clustering(clusters, points, k)
+        # AGLOMERATIVNE
         if a == 4:
             agglomerative_clustering(clusters, points, k)
         end = time.time()
@@ -494,6 +493,7 @@ def testing_function():
         if draw_flag == 1:
             draw(clusters)
         if points_flag == 2 and a != 4:
+            print("Idem cistit")
             clean_points(points)
         if points_flag == 1 or a == 4:
             points = generate_points()
@@ -508,95 +508,13 @@ def testing_function():
             worst = clusters
             worst_value = val
         print("="*30)
+    if a==1 or a==2:
+        print("Average number of iterations ", iterations_avg/n)
     print("Average time", average_time / n)
     print("Average success", average_success / n)
     print("Overall average distance", calculate_overall_average_distance(average_distances))
-    # # IBA CENTROIDY alebo MEDOIDY
-    # if a== 1 or a==2:
-    #     points = generate_points()
-    #     for i in range(n):
-    #         clusters = []
-    #         start = time.time()
-    #         k_means(clusters, points, k, a)
-    #         end = time.time()
-    #         print("Time ", end - start)
-    #         time_k_centroid += end - start
-    #         if draw_flag == 1:
-    #             draw(clusters)
-    #         if points_flag == 2:
-    #             clean_points(points)
-    #         if points_flag == 1:
-    #             points = generate_points()
-    #         val = evaluate(clusters, average_distances)
-    #         average_success += val
-    #         print("Average distances ", average_distances[-1])
-    #         print("Average distance of a cluster", sum(average_distances[-1]) / k)
-    #         average_success += val
-    #         if best == -1 or best_value < val:
-    #             best = clusters
-    #             best_value = val
-    #         elif worst == -1 or worst_value > val:
-    #             worst = clusters
-    #             worst_value = val
-    #         print("=" * 30)
-    #     print("Average time", time_k_centroid/n)
-    #     print("Average success", average_success/n)
-    #     print("Overall average distance", calculate_overall_average_distance(average_distances))
-    # # IBA DIVIZIVNE
-    # elif a == 3:
-    #     points = generate_points()
-    #     for i in range(n):
-    #         clusters = []
-    #         start = time.time()
-    #         divisive_clustering(clusters, points, k)
-    #         end = time.time()
-    #         print("Time ", end - start)
-    #         time_divisive += end - start
-    #         if draw_flag == 1:
-    #             draw(clusters)
-    #         if points_flag == 2:
-    #             clean_points(points)
-    #         val = evaluate(clusters, average_distances)
-    #         average_success += val
-    #         print("Average distances ", average_distances[-1])
-    #         print("Average distance of a cluster", sum(average_distances[-1]) / k)
-    #         average_success += val
-    #         if best == -1 or best_value < val:
-    #             best = clusters
-    #             best_value = val
-    #         elif worst == -1 or worst_value > val:
-    #             worst = clusters
-    #             worst_value = val
-    #         print("=" * 30)
-    #     print("Average time", time_divisive / n)
-    #     print("Average success", average_success / n)
-    #     print("Overall average distance", calculate_overall_average_distance(average_distances))
-    # # IBA AGLOMERATIVNE
-    # elif a == 4:
-    #     for i in range(n):
-    #         clusters = []
-    #         points = generate_points()
-    #         start = time.time()
-    #         agglomerative_clustering(clusters, points, k)
-    #         end = time.time()
-    #         print("Cas ", end - start)
-    #         time_agglo += end - start
-    #         if draw_flag == 1:
-    #             draw(clusters)
-    #         val = evaluate(clusters, average_distances)
-    #         print("Average distances ", average_distances)
-    #         print("Average distance of a cluster", sum(average_distances[-1])/k)
-    #         average_success += val
-    #         if best == -1 or best_value < val:
-    #             best = clusters
-    #             best_value = val
-    #         elif worst == -1 or worst_value > val:
-    #             worst = clusters
-    #             worst_value = val
-    #         print("=" * 30)
-    #     print("Average time", time_agglo / n)
-    #     print("Average success", average_success / n)
-    #     print("Overall average distance", calculate_overall_average_distance(average_distances))
+    print("Best  success ", best_value)
+    print("Worst success ", worst_value)
     if draw_flag == 2:
         draw(worst)
         draw(best)
