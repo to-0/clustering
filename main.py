@@ -413,10 +413,10 @@ def testing_function():
     print("4. Test agglomerative clustering with centroids")
     a = int(input())
     k = int(input("Select number of clusters\n"))
-    n = int(input("Select how many times you want to run each cluster function\n"))
+    n = int(input("Select how many sets you want to test\n"))
     global all_time
     draw_flag = int(input("1. Draw everything (slow)\n2. Draw only the best and worst\n3. Draw nothing\n"))
-    points_flag = int(input("1. Generate new points every time\n2. Use the same points (except agglomerative clustering)\n"))
+    #points_flag = int(input("1. Generate new points every time\n2. Use the same points (except agglomerative clustering)\n"))
     worst = -1
     best = -1
     best_value = -1
@@ -424,9 +424,13 @@ def testing_function():
     average_time = 0
     average_success = 0
     average_distances = []
-    points = generate_points()
+    #points = generate_points()
+    f = open("test_sets.txt", "r")
+    points = read_test_set(f)
     for i in range(n):
-
+        if not points:
+            print("No more testing sets of points")
+            break
         start = time.time()
         #CENTROIDY A MEDOIDY
         if a == 1 or a == 2:
@@ -443,11 +447,12 @@ def testing_function():
         print("Time ", end - start)
         if draw_flag == 1:
             draw(clusters)
-        if points_flag == 2 and a != 4:
-            print("Idem cistit")
-            clean_points(points)
-        if points_flag == 1 or a == 4:
-            points = generate_points()
+        # if points_flag == 2 and a != 4:
+        #     print("Idem cistit")
+        #     clean_points(points)
+        # if points_flag == 1 or a == 4:
+        # precitam dalsiu sadu prikladov
+        points = read_test_set(f)
         val = evaluate(clusters, average_distances)
         average_success += val
         print("Average distances ", average_distances[-1])
@@ -476,6 +481,28 @@ def calculate_overall_average_distance(average_distances):
         s += sum(distances)/len(distances)
     return s / len(average_distances)
 
+# vygenerujem 10 sad po
+def create_test_points(n):
+    f = open("test_sets.txt", "w")
+    for i in range(n):
+        points = generate_points()
+        for point in points:
+            f.write(str(point.x) + " " + str(point.y)+"\n")
+        f.write("#\n")
+    f.close()
+# citam riadky az kym nenarazim na # co mi znaci koniec sady
+def read_test_set(f):
+    all_points = []
+    for line in f:
+        if line[0] == "#":
+            break
+        line = line.strip("\n")
+        line = line.split(" ")
+        x = line[0]
+        y = line[1]
+        all_points.append(Point(int(x), int(y), 0))
+    return all_points
+
 
 def main():
     global number_of_points
@@ -485,7 +512,13 @@ def main():
         DEBUG = True
     else:
         DEBUG = False
-    number_of_points = int(input("Number of points added to the first 20 points\n"))
+
+    print("1.Create new testings sets\n2. Read the saved ones\n")
+    choice_set = int(input())
+    if choice_set == 1:
+        number_of_points = int(input("Number of points added to the first 20 points\n"))
+        number_of_sets = int(input("Number of sets:\n"))
+        create_test_points(number_of_sets)
     testing_function()
 
 
